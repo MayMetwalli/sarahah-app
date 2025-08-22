@@ -14,11 +14,18 @@ app.use("/api/users", userRouter);
 app.use("/api/messages", messageRouter);
 
 dbConnection()
-app.use((err, req, res, next)=>{
+app.use(async (err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({message:"something broke", err:err.message, stack:err.stack});
 
+    if (req.session?.inTransaction) {
+        await req.session.abortTransaction();
+        req.session.endSession();
+        console.log('The transaction is aborted');
+    }
+
+    res.status(500).json({ message: "Something broke", err:err.message, stack:err.stack });
 });
+
 
 app.use((req, res)=>{
     res.status(404).send("Not Found");

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { compareSync, hashSync } from "bcrypt"
 import User from "../../../Models/user.model.js"
 import { encrypt } from "../../../Utils/encryption.utils.js"
@@ -9,7 +10,7 @@ import jwt from 'jsonwebtoken'
 import {v4 as uuidv4} from "uuid"
 import { generateToken, verifyToken } from "../../../Utils/tokens.utils.js"
 import BlackListedTokens from "../../../Models/black-listed-tokens.model.js"
-
+import Message from "../../../Models/messages.model.js";
 const uniqueString = customAlphabet('fsjfwi4uh5o4nt', 5)
 
 export const SignUpService = async (req, res) =>{
@@ -172,14 +173,25 @@ export const UpdateAccountService = async (req,res)=>{
 }
 
 
-export const DeleteAccountService = async (req, res) =>{
-    const {_id} = req.loggedInUser
-    const deletedUser = await User.findByIdAndDelete(_id)
-    if(!deletedUser){
-        return res.status(404).json({message:"User not found"})
-    }
-    return res.status(200).json({message:"User deleted successfully", deletedUser})
-}
+export const DeleteAccountService = async (req, res) => {
+  const { _id } = req.loggedInUser; 
+
+  const session = await mongoose.startSession();
+  req.session = session;
+  session.startTransaction();
+
+  const deletedUser = await User.findByIdAndDelete(_id, { session });
+  if (!deletedUser) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  await Message.deleteMany({ receiverId: _id }, { session });
+
+  await session.commitTransaction();
+  session.endSession(); 
+  return res.status(200).json({ message: "User deleted successfully", deletedUser });
+};
+
 
 
 
@@ -262,3 +274,6 @@ export const UpdatePasswordService = async (req, res) => {
         });
     }
 };
+
+
+
